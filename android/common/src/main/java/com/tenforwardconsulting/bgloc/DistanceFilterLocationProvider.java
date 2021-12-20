@@ -21,6 +21,7 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 
 import com.marianhello.bgloc.Config;
@@ -28,6 +29,7 @@ import com.marianhello.bgloc.provider.AbstractLocationProvider;
 import com.marianhello.utils.ToneGenerator.Tone;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import static java.lang.Math.abs;
 import static java.lang.Math.pow;
@@ -197,7 +199,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                 // Turn on each provider aggressively for a short period of time
                 List<String> matchingProviders = locationManager.getAllProviders();
                 for (String provider: matchingProviders) {
-                    if (provider != LocationManager.PASSIVE_PROVIDER) {
+                    if (!LocationManager.PASSIVE_PROVIDER.equals(provider)) {
                         locationManager.requestLocationUpdates(provider, 0, 0, this);
                     }
                 }
@@ -484,9 +486,30 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
             criteria.setPowerRequirement(Criteria.POWER_HIGH);
 
             try {
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                locationManager.getCurrentLocation(
+                  LocationManager.GPS_PROVIDER,
+                  null,
+                  mContext.getMainExecutor(),
+                  new Consumer<Location>() {
+                    @Override
+                    public void accept(Location location) {
+                      try {
+                        Intent i = new Intent();
+                        i.putExtra(LocationManager.KEY_LOCATION_CHANGED, location);
+
+                        // Perform the operation associated with our pendingIntent
+                        singleUpdatePI.send(mContext, 1, i);
+                      } catch (PendingIntent.CanceledException e) {
+                        logger.error("PendingIntent CanceledException: {}", e.getMessage());
+                      }
+                    }
+                  });
+              } else {
                 locationManager.requestSingleUpdate(criteria, singleUpdatePI);
+              }
             } catch (SecurityException e) {
-                logger.error("Security exception: {}", e.getMessage());
+              logger.error("Security exception: {}", e.getMessage());
             }
         }
     };

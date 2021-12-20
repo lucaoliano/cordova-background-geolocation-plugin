@@ -8,6 +8,7 @@ dependencies {
     }
     // promises
     implementation 'com.github.jparkie:promise:1.0.3'
+    implementation 'commons-io:commons-io:2.4'
 }
 
 android {
